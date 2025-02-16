@@ -1,6 +1,6 @@
 use std::time::Instant;
 
-use blockchain::chain::Chain;
+use blockchain::{chain::Chain, trial};
 
 mod blockchain;
 mod server;
@@ -54,3 +54,7 @@ async fn mine_block(State(c): State<Arc<Mutex<Chain>>>, Json(data): Json<Data>) 
     c.add(data.data.as_str());
     Redirect::permanent("/api/chain")
 }
+
+/*fn main() {
+    trial();
+}*/

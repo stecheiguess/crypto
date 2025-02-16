@@ -100,6 +100,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
+ "to-binary",
  "tokio",
 ]
 
@@ -755,6 +756,15 @@ name = "sync_wrapper"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2047c6ded9c721764247e62cd3b03c09ffc529b2ba5b10ec482ae507a4a70160"
+
+[[package]]
+name = "to-binary"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4424552bc848fd1afbcd81f0e8a54b7401b90fd81bb418655ad6dc6d0823bbe3"
+dependencies = [
+ "hex",
+]
 
 [[package]]
 name = "tokio"

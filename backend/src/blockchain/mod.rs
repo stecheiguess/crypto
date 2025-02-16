@@ -1,11 +1,13 @@
+use std::time::Instant;
+
+use chain::Chain;
+
 pub mod block;
 pub mod chain;
 pub mod hash;
 
-/*pub fn main() {
+pub fn trial() {
     let mut c = Chain::new();
-
-    let db = ["test1", "test2", "whee", "wow"];
 
     let mut avg = 0;
 
@@ -30,4 +32,3 @@ pub mod hash;
 }
 
 // TODO - tests.
-*/
