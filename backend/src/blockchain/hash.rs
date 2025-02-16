@@ -1,7 +1,9 @@
 use hex;
 use sha2::{Digest, Sha256};
 
-#[derive(Debug, PartialEq)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub struct Hash(pub String);
 
 impl Hash {

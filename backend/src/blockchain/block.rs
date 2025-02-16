@@ -1,6 +1,7 @@
 use crate::blockchain::hash::Hash;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Block {
     pub nonce: usize,
     pub prev: Hash,
@@ -32,3 +33,5 @@ impl Block {
             .unwrap()
     }
 }
+
+// TODO: dynamic difficulty.

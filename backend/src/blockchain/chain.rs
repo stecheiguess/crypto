@@ -1,10 +1,11 @@
 use crate::blockchain::block::Block;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 
 pub struct Chain {
     difficulty: usize,
-    chain: Vec<Block>,
+    pub chain: Vec<Block>,
 }
 
 impl Chain {
