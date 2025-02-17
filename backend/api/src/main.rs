@@ -1,6 +1,6 @@
-use std::{collections::HashMap, time::Instant};
+use std::{collections::HashMap, env, time::Instant};
 
-use blockchain::{chain::Chain, trial};
+use blockchain::{block::Block, chain::Chain, trial};
 
 mod blockchain;
 //mod server;
@@ -20,6 +20,7 @@ use futures_util::{
     sink::SinkExt,
     stream::{SplitSink, SplitStream, StreamExt},
 };
+use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::net::SocketAddr;
@@ -30,15 +31,21 @@ use uuid::Uuid;
 
 #[tokio::main]
 async fn main() {
-    x();
+    //x();
     let c = Arc::new(Mutex::new(Chain::new()));
+
+    let port: u16 = env::var("API_PORT")
+        .unwrap_or_else(|_| "3001".to_string()) // Default to 4000
+        .parse()
+        .expect("Invalid PORT number");
 
     let router = Router::new()
         .route("/api/chain", get(get_chain))
         .route("/api/mine", post(mine_block))
+        .route("/api/replace", post(replace_chain))
         .with_state(c);
 
-    let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
+    let addr = SocketAddr::from(([127, 0, 0, 1], port));
     println!("Listening at {}", addr);
 
     let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
@@ -59,10 +66,43 @@ struct Data {
     data: String,
 }
 
-async fn mine_block(State(c): State<Arc<Mutex<Chain>>>, Json(data): Json<Data>) -> Redirect {
+async fn notify_p2p_server(chain: Vec<Block>) {
+    let client = Client::new();
+
+    let port: u16 = env::var("API_PORT")
+        .unwrap_or_else(|_| "3001".to_string()) // Default to 4000
+        .parse()
+        .expect("Invalid PORT number");
+
+    let p2p_url = format!("http://127.0.0.1:{}/broadcast", port + 3000); // P2P server API endpoint - 6001
+
+    let response = client.post(p2p_url).json(&json!(chain)).send().await;
+
+    if let Err(err) = response {
+        eprintln!("Failed to notify P2P server: {}", err);
+    }
+}
+
+async fn mine_block(State(c): State<Arc<Mutex<Chain>>>, Json(data): Json<Data>) {
     let mut c = c.lock().unwrap();
     c.add(data.data.as_str());
-    Redirect::permanent("/api/chain")
+
+    tokio::spawn(notify_p2p_server(c.chain.clone()));
+
+    //Redirect::permanent("/api/chain")
+}
+
+async fn replace_chain(State(c): State<Arc<Mutex<Chain>>>, Json(chain): Json<Vec<Block>>) {
+    let mut c = c.lock().unwrap();
+
+    match c.replace(chain) {
+        Some(ch) => {
+            tokio::spawn(notify_p2p_server(ch));
+        }
+        None => (),
+    };
+
+    //Redirect::permanent("/api/chain")
 }
 
 fn x() {

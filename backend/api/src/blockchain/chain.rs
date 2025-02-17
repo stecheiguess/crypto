@@ -79,14 +79,20 @@ impl Chain {
         Chain::check(&self.chain)
     }
 
-    pub fn replace(&mut self, new_chain: Vec<Block>) {
+    pub fn replace(&mut self, new_chain: Vec<Block>) -> Option<Vec<Block>> {
         if new_chain.len() <= self.chain.len() {
-            return;
+            return None;
         }
 
         match Chain::check(&new_chain) {
-            Ok(_) => self.chain = new_chain,
-            Err(_) => println!("new chain is not valid."),
+            Ok(_) => {
+                self.chain = new_chain;
+                Some(self.chain.clone())
+            }
+            Err(_) => {
+                println!("new chain is not valid.");
+                None
+            }
         }
     }
 }
