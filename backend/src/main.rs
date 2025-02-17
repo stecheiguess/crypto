@@ -3,12 +3,12 @@ use std::time::Instant;
 use blockchain::{chain::Chain, trial};
 
 mod blockchain;
+mod hash;
 mod server;
 mod transaction;
 
 use axum::{
     extract::State,
-    handler::Handler,
     response::Redirect,
     routing::{get, post},
     Json, Router,
@@ -17,9 +17,11 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
+use transaction::wallet::Wallet;
 
 #[tokio::main]
 async fn main() {
+    x();
     let c = Arc::new(Mutex::new(Chain::new()));
 
     let app = Router::new()
@@ -55,6 +57,8 @@ async fn mine_block(State(c): State<Arc<Mutex<Chain>>>, Json(data): Json<Data>) 
     Redirect::permanent("/api/chain")
 }
 
-/*fn main() {
-    trial();
-}*/
+fn x() {
+    //trial();
+    let w = Wallet::new();
+    println!("{}", w.public)
+}

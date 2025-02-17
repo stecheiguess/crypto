@@ -4,7 +4,6 @@ use chain::Chain;
 
 pub mod block;
 pub mod chain;
-pub mod hash;
 
 pub fn trial() {
     let mut c = Chain::new();
