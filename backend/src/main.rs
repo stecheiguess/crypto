@@ -3,9 +3,9 @@ use std::time::Instant;
 use blockchain::{chain::Chain, trial};
 
 mod blockchain;
-mod hash;
 mod server;
 mod transaction;
+mod utils;
 
 use axum::{
     extract::State,
@@ -17,7 +17,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
-use transaction::wallet::Wallet;
+use transaction::{pool::Pool, transaction::Transaction, wallet::Wallet};
 
 #[tokio::main]
 async fn main() {
@@ -59,6 +59,26 @@ async fn mine_block(State(c): State<Arc<Mutex<Chain>>>, Json(data): Json<Data>) 
 
 fn x() {
     //trial();
-    let w = Wallet::new();
-    println!("{}", w.public)
+    let mut tp = Pool::new();
+    let mut w1 = Wallet::new();
+    let w2 = Wallet::new();
+
+    w1.send(&w2, 5., &mut tp);
+
+    println!("{:?}", tp);
+
+    w1.send(&w2, 10., &mut tp);
+
+    /*match t.verify() {
+        Ok(_) => println!("Success"),
+        Err(_) => println!("Fail"),
+    }*/
+
+    println!("{:?}", tp);
+
+    let w3 = Wallet::new();
+
+    w1.send(&w3, 5., &mut tp);
+
+    println!("{:?}", tp);
 }

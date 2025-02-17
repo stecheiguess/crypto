@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 pub struct Hash(pub String);
 
 impl Hash {
-    pub fn new(input: &str) -> Result<Hash, &str> {
+    pub fn new(input: impl AsRef<[u8]>) -> Result<Hash, String> {
         let mut h = Sha256::new();
 
         h.update(input);
@@ -15,10 +15,10 @@ impl Hash {
         let out = hex::encode(h.finalize());
 
         if out.len() != 64 {
-            return Err("Hash must be 64 characters long.");
+            return Err("Hash must be 64 characters long.".to_owned());
         }
         if !out.chars().all(|c| c.is_ascii_hexdigit()) {
-            return Err("Hash must contain only hexadecimal characters.");
+            return Err("Hash must contain only hexadecimal characters.".to_owned());
         }
 
         Ok(Hash(out))

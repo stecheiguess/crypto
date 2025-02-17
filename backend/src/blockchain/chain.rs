@@ -1,6 +1,6 @@
 use std::time::Instant;
 
-use crate::blockchain::block::Block;
+use crate::{blockchain::block::Block, utils::time};
 use serde::{Deserialize, Serialize};
 use to_binary::BinaryString;
 
@@ -42,7 +42,7 @@ impl Chain {
         while hex_to_binary(block.hash().0.as_str())[..block.difficulty]
             != "0".repeat(block.difficulty)
         {
-            block.timestamp = Block::time();
+            block.timestamp = time();
 
             block.nonce += 1;
 
