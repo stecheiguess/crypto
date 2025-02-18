@@ -56,12 +56,18 @@ class P2PServer {
         this.messageHandler(socket);
 
         try {
-            const response = await axios.get(
-                `http://127.0.0.1:${this.P2P_PORT - 2000}/api/chain`
+            const chain = await axios.get(
+                `http://127.0.0.1:${this.P2P_PORT - 2000}/api/chain/get`
             );
-            socket.send(JSON.stringify(response.data));
+
+            socket.send(
+                JSON.stringify({
+                    type: "CHAIN",
+                    data: chain.data,
+                })
+            );
         } catch (error) {
-            console.error("Error fetching blockchain data:", error);
+            console.error("Error fetching blockchain data:");
         }
     }
 
@@ -69,8 +75,8 @@ class P2PServer {
     private messageHandler(socket: WebSocket): void {
         socket.on("message", async (message: string) => {
             try {
-                const data: WebSocketMessage = JSON.parse(message);
-                console.log("Received data:", data);
+                const data = JSON.parse(message) as WebSocketMessage<any>;
+                console.log(data);
                 const hash = createHash("sha256").update(message).digest("hex");
 
                 if (this.seen.has(hash)) {
@@ -84,15 +90,22 @@ class P2PServer {
 
                 this.seen.add(hash);
 
+                //console.log("Received data:", data);
+
                 switch (data.type) {
                     case "CHAIN":
-                        await this.replace(data.data);
+                        await this.replaceChain(data.data);
+                        break;
                     case "TRANSACTION":
+                        await this.addTransaction(data.data);
+                        break;
+                    default:
+                        return;
                 }
 
                 this.broadcast(message);
             } catch (error) {
-                console.error("Invalid message received:", error);
+                console.error("Invalid message received:");
             }
         });
     }
@@ -107,22 +120,56 @@ class P2PServer {
     }
 
     /** 🔹 Replace blockchain data via API */
-    private async replace(data: Block[]): Promise<void> {
+    private async replaceChain(data: Block[]): Promise<void> {
         try {
             await axios.post(
-                `http://127.0.0.1:${this.P2P_PORT - 2000}/api/replace`,
+                `http://127.0.0.1:${this.P2P_PORT - 2000}/api/chain/replace`,
                 data
             );
         } catch (error) {
-            console.error("Replace error:", error);
+            console.error("replaceChain error:", error);
+        }
+    }
+
+    private async addTransaction(data: Transaction): Promise<void> {
+        try {
+            await axios.post(
+                `http://127.0.0.1:${
+                    this.P2P_PORT - 2000
+                }/api/transaction/update`,
+                data
+            );
+        } catch (error) {
+            console.error("addTransaction error:", error);
         }
     }
 
     /** 🔹 Start Express HTTP API */
     private startHTTPServer(): void {
-        this.app.post("/broadcast", async (req: Request, res: Response) => {
-            console.log("Received broadcast request from API, syncing...");
-            await this.broadcast(JSON.stringify(req.body));
+        this.app.post("/chain", async (req: Request, res: Response) => {
+            console.log(
+                "Received chain broadcast request from API, syncing..."
+            );
+            await this.broadcast(
+                JSON.stringify({
+                    type: "CHAIN",
+                    data: req.body,
+                })
+            );
+
+            res.json({ message: "Blockchain broadcasted to peers" });
+        });
+
+        this.app.post("/transaction", async (req: Request, res: Response) => {
+            console.log(
+                "Received transaction broadcast request from API, syncing..."
+            );
+            await this.broadcast(
+                JSON.stringify({
+                    type: "TRANSACTION",
+                    data: req.body,
+                })
+            );
             res.json({ message: "Blockchain broadcasted to peers" });
         });
 

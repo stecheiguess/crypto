@@ -7,7 +7,7 @@ use super::{pool::Pool, transaction::Transaction};
 
 #[derive(Copy, Clone)]
 pub struct Wallet {
-    pub balance: f32,
+    pub balance: f64,
     secret: SecretKey,
     pub public: PublicKey,
 }
@@ -30,16 +30,26 @@ impl Wallet {
         return secp.sign_ecdsa(&message, &self.secret);
     }
 
-    pub fn send(&mut self, receiver: &PublicKey, amount: f32, tp: &mut Pool) -> Result<(), String> {
+    pub fn send(
+        &mut self,
+        receiver: &PublicKey,
+        amount: f64,
+        tp: &mut Pool,
+    ) -> Result<Transaction, String> {
         if amount > self.balance {
             return Err("amount greater than balance.".to_string());
         }
 
         match tp.check(self.public) {
-            Some(t) => t.update(&self, receiver, amount),
-            None => tp.update(Transaction::new(&self, receiver, amount).unwrap()),
+            Some(t) => {
+                t.update(&self, receiver, amount);
+                return Ok(t.clone());
+            }
+            None => {
+                let t = Transaction::new(&self, receiver, amount).unwrap();
+                tp.update(t.clone());
+                return Ok(t);
+            }
         }
-
-        return Ok(());
     }
 }

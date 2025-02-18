@@ -1,6 +1,9 @@
-type WebSocketMessage =
-    | { type: "TRANSACTION"; data: Transaction }
-    | { type: "CHAIN"; data: Block[] };
+type MessageType = "TRANSACTION" | "CHAIN";
+
+interface WebSocketMessage<T> {
+    type: MessageType;
+    data: T;
+}
 
 // 🔹 Defines an Output transaction
 interface TransactionOutput {
@@ -19,7 +22,7 @@ interface TransactionInput {
 // 🔹 Defines the full Transaction structure
 interface Transaction {
     id: string; // Unique transaction ID
-    input: TransactionInput; // Transaction input details
+    input: TransactionInput | null; // Transaction input details
     outputs: TransactionOutput[]; // List of transaction outputs
 }
 

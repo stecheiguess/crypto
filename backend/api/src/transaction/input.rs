@@ -9,10 +9,10 @@ use super::wallet::Wallet;
 
 use super::output::Output;
 
-#[derive(Deserialize, Serialize, Debug, Clone)]
+#[derive(Deserialize, Serialize, Debug, Copy, Clone)]
 pub struct Input {
     pub timestamp: u64,
-    pub amount: f32,
+    pub amount: f64,
     pub address: PublicKey,
     pub signature: Signature,
 }

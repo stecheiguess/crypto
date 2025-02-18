@@ -4,6 +4,7 @@ use blockchain::{block::Block, chain::Chain, trial};
 
 mod blockchain;
 //mod server;
+//mod miner;
 mod transaction;
 mod utils;
 
@@ -32,7 +33,8 @@ use transaction::{pool::Pool, transaction::Transaction, wallet::Wallet};
 use uuid::Uuid;
 
 #[derive(Clone)]
-struct TransactionState {
+struct AppState {
+    c: Arc<Mutex<Chain>>,
     p: Arc<Mutex<Pool>>,
     w: Arc<Mutex<Wallet>>,
 }
@@ -44,7 +46,7 @@ async fn main() {
     let p = Arc::new(Mutex::new(Pool::new()));
     let w = Arc::new(Mutex::new(Wallet::new()));
 
-    let t = TransactionState { p, w };
+    let s = AppState { c, p, w };
 
     let port: u16 = env::var("API_PORT")
         .unwrap_or_else(|_| "3001".to_string()) // Default to 4000
@@ -52,13 +54,15 @@ async fn main() {
         .expect("Invalid PORT number");
 
     let router = Router::new()
-        .route("/api/chain", get(get_chain))
-        .route("/api/mine", post(mine_block))
-        .route("/api/replace", post(replace_chain))
-        .with_state(c)
-        .route("/api/transactions", get(get_pool))
-        .route("/api/transact", post(create_transaction))
-        .with_state(t);
+        .route("/api/chain/get", get(get_chain))
+        .route("/api/chain/mine", post(mine_block))
+        .route("/api/chain/replace", post(replace_chain))
+        .route("/api/transaction/get", get(get_pool))
+        .route("/api/transaction/create", post(create_transaction))
+        .route("/api/transaction/update", post(update_transaction))
+        .route("/api/public_key", get(get_public_key))
+        .route("/api/mine", get(mine))
+        .with_state(s);
 
     let addr = SocketAddr::from(([127, 0, 0, 1], port));
     println!("Listening at {}", addr);
@@ -68,8 +72,8 @@ async fn main() {
     axum::serve(listener, router).await.unwrap();
 }
 
-async fn get_chain(State(c): State<Arc<Mutex<Chain>>>) -> Json<Value> {
-    let c = c.lock().unwrap();
+async fn get_chain(State(s): State<AppState>) -> Json<Value> {
+    let c = s.c.lock().unwrap();
     match c.validate() {
         Ok(_) => {
             let chain = json!(&c.chain);
@@ -84,8 +88,8 @@ struct BlockData {
     data: String,
 }
 
-async fn mine_block(State(c): State<Arc<Mutex<Chain>>>, Json(data): Json<BlockData>) {
-    let mut c = c.lock().unwrap();
+async fn mine_block(State(s): State<AppState>, Json(data): Json<BlockData>) {
+    let mut c = s.c.lock().unwrap();
     c.add(data.data.as_str());
 
     tokio::spawn(notify_p2p_server(c.chain.clone()));
@@ -93,12 +97,12 @@ async fn mine_block(State(c): State<Arc<Mutex<Chain>>>, Json(data): Json<BlockDa
     //Redirect::permanent("/api/chain")
 }
 
-async fn replace_chain(State(c): State<Arc<Mutex<Chain>>>, Json(chain): Json<Vec<Block>>) {
-    let mut c = c.lock().unwrap();
+async fn replace_chain(State(s): State<AppState>, Json(chain): Json<Vec<Block>>) {
+    let mut c = s.c.lock().unwrap();
 
     match c.replace(chain) {
         Some(ch) => {
-            tokio::spawn(notify_p2p_server(ch));
+            //tokio::spawn(notify_p2p_server(ch));
         }
         None => (),
     };
@@ -106,8 +110,8 @@ async fn replace_chain(State(c): State<Arc<Mutex<Chain>>>, Json(chain): Json<Vec
     //Redirect::permanent("/api/chain")
 }
 
-async fn get_pool(State(t): State<TransactionState>) -> Json<Value> {
-    let p = t.p.lock().unwrap();
+async fn get_pool(State(s): State<AppState>) -> Json<Value> {
+    let p = s.p.lock().unwrap();
 
     let chain = json!(&p.transactions);
 
@@ -118,46 +122,71 @@ async fn get_pool(State(t): State<TransactionState>) -> Json<Value> {
 
 struct TransactionData {
     receiver: PublicKey,
-    amount: f32,
+    amount: f64,
 }
 
-async fn create_transaction(State(t): State<TransactionState>, Json(data): Json<TransactionData>) {
-    let mut p = t.p.lock().unwrap();
-    let mut w = t.w.lock().unwrap();
-    w.send(&data.receiver, data.amount, &mut p);
+async fn create_transaction(State(s): State<AppState>, Json(data): Json<TransactionData>) {
+    let mut p = s.p.lock().unwrap();
+    let mut w = s.w.lock().unwrap();
+
+    let t = w.send(&data.receiver, data.amount, &mut p).unwrap();
+    tokio::spawn(notify_p2p_transaction(t));
 }
 
-fn x() {
-    //trial();
-    let mut tp = Pool::new();
-    let mut w1 = Wallet::new();
-    let w2 = Wallet::new();
+async fn update_transaction(State(s): State<AppState>, Json(transaction): Json<Transaction>) {
+    let mut p = s.p.lock().unwrap();
 
-    // w1.send(&w2, 5., &mut tp);
+    p.update(transaction);
 
-    println!("{:?}", tp);
-
-    //w1.send(&w2, 10., &mut tp);
-
-    /*match t.verify() {
-        Ok(_) => println!("Success"),
-        Err(_) => println!("Fail"),
-    }*/
-
-    println!("{:?}", tp);
-
-    let w3 = Wallet::new();
-
-    //w1.send(&w3, 5., &mut tp);
-
-    println!("{:?}", tp);
+    //Redirect::permanent("/api/chain")
 }
 
-#[derive(serde::Serialize)]
-struct BlockchainMessage<T> {
-    r#type: String,
-    data: T,
+async fn get_public_key(State(s): State<AppState>) -> Json<Value> {
+    let w = s.w.lock().unwrap();
+
+    Json(json!(w.public))
 }
+
+async fn mine(State(s): State<AppState>) -> Json<Value> {
+    let mut c = match s.c.lock() {
+        Ok(guard) => guard,
+        Err(poisoned) => {
+            eprintln!("⚠️ Warning: Blockchain mutex was poisoned! Recovering...");
+            poisoned.into_inner() // Recover from the poisoned state
+        }
+    };
+
+    let p = match s.p.lock() {
+        Ok(guard) => guard,
+        Err(poisoned) => {
+            eprintln!("⚠️ Warning: Transaction Pool mutex was poisoned! Recovering...");
+            poisoned.into_inner()
+        }
+    };
+
+    let w = match s.w.lock() {
+        Ok(guard) => guard,
+        Err(poisoned) => {
+            eprintln!("⚠️ Warning: Wallet mutex was poisoned! Recovering...");
+            poisoned.into_inner()
+        }
+    };
+
+    let mut transactions = p.valid();
+
+    let reward = Transaction::reward(&w.public);
+    transactions.push(reward);
+
+    println!("{}", json!(transactions));
+
+    let block = c.add(json!(transactions).to_string().as_str());
+
+    tokio::spawn(notify_p2p_server(c.chain.clone()));
+
+    Json(json!(block))
+}
+
+// notify
 
 pub async fn notify_p2p_server(chain: Vec<Block>) {
     let client = Client::new();
@@ -167,16 +196,38 @@ pub async fn notify_p2p_server(chain: Vec<Block>) {
         .parse()
         .expect("Invalid API_PORT number");
 
-    let p2p_url = format!("http://127.0.0.1:{}/broadcast", port + 3000); // Target P2P API
-
-    // Create the BlockchainMessage object
-    let message = BlockchainMessage {
-        r#type: "CHAIN".to_string(),
-        data: chain,
-    };
+    let p2p_url = format!("http://127.0.0.1:{}/chain", port + 3000); // Target P2P API
 
     // Send request to P2P server
-    match client.post(p2p_url).json(&message).send().await {
+    match client.post(p2p_url).json(&chain).send().await {
+        Ok(response) => {
+            if response.status().is_success() {
+                println!("✅ Successfully notified P2P server.");
+            } else {
+                eprintln!(
+                    "❌ P2P server responded with an error: {}",
+                    response.status()
+                );
+            }
+        }
+        Err(err) => {
+            eprintln!("❌ Failed to notify P2P server: {}", err);
+        }
+    }
+}
+
+pub async fn notify_p2p_transaction(transaction: Transaction) {
+    let client = Client::new();
+
+    let port: u16 = env::var("API_PORT")
+        .unwrap_or_else(|_| "3001".to_string())
+        .parse()
+        .expect("Invalid API_PORT number");
+
+    let p2p_url = format!("http://127.0.0.1:{}/transaction", port + 3000); // Target P2P API
+
+    // Send request to P2P server
+    match client.post(p2p_url).json(&transaction).send().await {
         Ok(response) => {
             if response.status().is_success() {
                 println!("✅ Successfully notified P2P server.");

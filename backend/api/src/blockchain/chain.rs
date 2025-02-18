@@ -19,9 +19,10 @@ impl Chain {
         Chain { chain }
     }
 
-    pub fn add(&mut self, data: &str) {
+    pub fn add(&mut self, data: &str) -> Block {
         let b = self.mine(data);
-        self.push(b);
+        self.push(b.clone());
+        b
     }
 
     fn push(&mut self, block: Block) {

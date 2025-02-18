@@ -37,6 +37,36 @@ impl Pool {
     pub fn check(&mut self, address: PublicKey) -> Option<&mut Transaction> {
         self.transactions
             .iter_mut()
-            .find(|t| t.input.address == address)
+            .find(|t| t.input.unwrap().address == address)
+    }
+
+    /// 🔹 Filter valid transactions from the pool
+    pub fn valid(&self) -> Vec<Transaction> {
+        self.transactions
+            .iter()
+            .filter(|transaction| {
+                let output_total: f64 = transaction.outputs.iter().map(|o| o.amount).sum();
+
+                // 🔥 Check if input amount matches output total
+                if transaction.input.unwrap().amount != output_total {
+                    println!(
+                        "❌ Invalid transaction from {}",
+                        transaction.input.unwrap().address
+                    );
+                    return false;
+                }
+
+                // 🔥 Verify transaction signature
+                match transaction.verify() {
+                    Ok(_) => true,
+                    Err(_) => false,
+                }
+            })
+            .cloned()
+            .collect()
+    }
+
+    pub fn clear(&mut self) {
+        self.transactions = Vec::new();
     }
 }
