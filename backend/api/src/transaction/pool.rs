@@ -1,10 +1,11 @@
 use secp256k1::PublicKey;
+use serde::{Deserialize, Serialize};
 
 use super::transaction::Transaction;
 
-#[derive(Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Pool {
-    transactions: Vec<Transaction>,
+    pub transactions: Vec<Transaction>,
 }
 
 impl Pool {
@@ -15,16 +16,21 @@ impl Pool {
     }
 
     pub fn update(&mut self, transaction: Transaction) {
-        match self
-            .transactions
-            .iter()
-            .enumerate()
-            .find(|(i, t)| t.id == transaction.id)
-        {
-            Some((i, _)) => {
-                self.transactions[i] = transaction;
+        match transaction.verify() {
+            Ok(_) => {
+                match self
+                    .transactions
+                    .iter()
+                    .enumerate()
+                    .find(|(i, t)| t.id == transaction.id)
+                {
+                    Some((i, _)) => {
+                        self.transactions[i] = transaction;
+                    }
+                    None => self.transactions.push(transaction),
+                }
             }
-            None => self.transactions.push(transaction),
+            Err(_) => (),
         }
     }
 

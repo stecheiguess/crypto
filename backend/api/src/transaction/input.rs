@@ -1,5 +1,6 @@
 use bincode::serialize;
 use secp256k1::{ecdsa::Signature, PublicKey};
+use serde::{Deserialize, Serialize};
 
 use crate::utils::hash::Hash;
 use crate::utils::time;
@@ -8,7 +9,7 @@ use super::wallet::Wallet;
 
 use super::output::Output;
 
-#[derive(Debug, Clone)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct Input {
     pub timestamp: u64,
     pub amount: f32,

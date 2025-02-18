@@ -80,12 +80,18 @@ impl Chain {
     }
 
     pub fn replace(&mut self, new_chain: Vec<Block>) -> Option<Vec<Block>> {
-        if new_chain.len() <= self.chain.len() {
-            return None;
-        }
-
         match Chain::check(&new_chain) {
             Ok(_) => {
+                if new_chain.len() < self.chain.len() {
+                    return None;
+                }
+
+                if new_chain.len() == self.chain.len()
+                    && new_chain.last().unwrap().nonce <= self.chain.last().unwrap().nonce
+                {
+                    return None;
+                }
+
                 self.chain = new_chain;
                 Some(self.chain.clone())
             }

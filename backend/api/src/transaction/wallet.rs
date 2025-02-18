@@ -30,7 +30,7 @@ impl Wallet {
         return secp.sign_ecdsa(&message, &self.secret);
     }
 
-    pub fn send(&mut self, receiver: &Wallet, amount: f32, tp: &mut Pool) -> Result<(), String> {
+    pub fn send(&mut self, receiver: &PublicKey, amount: f32, tp: &mut Pool) -> Result<(), String> {
         if amount > self.balance {
             return Err("amount greater than balance.".to_string());
         }

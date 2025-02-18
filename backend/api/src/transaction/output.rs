@@ -3,14 +3,14 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Output {
-    pub address: String,
+    pub address: PublicKey,
     pub amount: f32,
 }
 
 impl Output {
-    pub fn new(address: PublicKey, amount: f32) -> Self {
+    pub fn new(address: &PublicKey, amount: f32) -> Self {
         Output {
-            address: address.to_string(),
+            address: address.to_owned(),
             amount,
         }
     }
