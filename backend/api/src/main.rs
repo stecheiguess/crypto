@@ -126,10 +126,11 @@ struct TransactionData {
 }
 
 async fn create_transaction(State(s): State<AppState>, Json(data): Json<TransactionData>) {
+    let c = s.c.lock().unwrap();
     let mut p = s.p.lock().unwrap();
     let mut w = s.w.lock().unwrap();
 
-    let t = w.send(&data.receiver, data.amount, &mut p).unwrap();
+    let t = w.send(&data.receiver, data.amount, &c, &mut p).unwrap();
     tokio::spawn(notify_p2p_transaction(t));
 }
 
@@ -156,7 +157,7 @@ async fn mine(State(s): State<AppState>) -> Json<Value> {
         }
     };
 
-    let p = match s.p.lock() {
+    let mut p = match s.p.lock() {
         Ok(guard) => guard,
         Err(poisoned) => {
             eprintln!("⚠️ Warning: Transaction Pool mutex was poisoned! Recovering...");
@@ -180,6 +181,8 @@ async fn mine(State(s): State<AppState>) -> Json<Value> {
     println!("{}", json!(transactions));
 
     let block = c.add(json!(transactions).to_string().as_str());
+
+    p.clear();
 
     tokio::spawn(notify_p2p_server(c.chain.clone()));
 

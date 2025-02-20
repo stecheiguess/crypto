@@ -3,25 +3,25 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use crate::utils::{hash::Hash, time};
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Block {
     pub timestamp: u64,
     pub nonce: usize,
     pub prev: Hash,
-    pub index: usize,
+    pub height: usize,
     pub data: String,
     pub difficulty: usize,
 }
 
 impl Block {
-    pub fn new(prev: Hash, index: usize, data: &str, difficulty: usize) -> Self {
+    pub fn new(prev: Block, data: &str) -> Self {
         Block {
             timestamp: time(),
             nonce: 0,
-            prev,
-            index,
+            prev: prev.hash(),
+            height: prev.height + 1,
             data: data.to_string(),
-            difficulty,
+            difficulty: prev.difficulty,
         }
     }
 
@@ -30,9 +30,9 @@ impl Block {
             timestamp: 0,
             nonce: 0,
             prev: Hash::blank(),
-            index: 0,
+            height: 0,
             data: "".to_string(),
-            difficulty: 3,
+            difficulty: 5,
         }
     }
 
@@ -40,12 +40,10 @@ impl Block {
         Hash::new(
             format!(
                 "{}{}{}{}{}{}",
-                self.timestamp, self.prev.0, self.nonce, self.data, self.index, self.difficulty
+                self.timestamp, self.prev.0, self.nonce, self.data, self.height, self.difficulty
             )
             .as_str(),
         )
         .unwrap()
     }
 }
-
-// TODO: dynamic difficulty.
